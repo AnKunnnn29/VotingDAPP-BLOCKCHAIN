@@ -12,6 +12,7 @@ from services.crypto_service import CryptoService
 from models.voter import Voter
 from models.proposal import Proposal
 from models.election import Election
+from blockchain.blockchain import Blockchain
 from utils.constants import ElectionState, BlockchainMode
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -23,11 +24,13 @@ class AdminView(QWidget):
     
     def __init__(self, voting_service: VotingService, 
                  election_service: ElectionService,
-                 auth_service: AuthService):
+                 auth_service: AuthService,
+                 blockchain: Blockchain):
         super().__init__()
         self.voting_service = voting_service
         self.election_service = election_service
         self.auth_service = auth_service
+        self.blockchain = blockchain
         self.crypto_service = CryptoService()
         self.init_ui()
     
@@ -214,14 +217,17 @@ class AdminView(QWidget):
         
         # Voters table
         self.voters_table = QTableWidget()
-        self.voters_table.setColumnCount(5)
-        self.voters_table.setHorizontalHeaderLabels(["ID", "Họ tên", "Đã bỏ phiếu", "Đã xác thực", "Public Key"])
+        self.voters_table.setColumnCount(7)
+        self.voters_table.setHorizontalHeaderLabels(["ID", "Họ tên", "CCCD", "Khuôn mặt", "Đã bỏ phiếu", "Đã xác thực", "Public Key"])
         self.voters_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.voters_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
-        self.voters_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.voters_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Interactive)
         self.voters_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.voters_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
-        self.voters_table.setColumnWidth(1, 200)
+        self.voters_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        self.voters_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.voters_table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)
+        self.voters_table.setColumnWidth(1, 180)
+        self.voters_table.setColumnWidth(2, 120)
         self.voters_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.voters_table.setAlternatingRowColors(True)
         self.voters_table.verticalHeader().setVisible(False)
@@ -242,12 +248,18 @@ class AdminView(QWidget):
         verify_btn.clicked.connect(self.verify_voter)
         verify_btn.setMinimumHeight(40)
         
+        face_register_btn = QPushButton("📸 Đăng ký khuôn mặt")
+        face_register_btn.setObjectName("warningButton")
+        face_register_btn.clicked.connect(self.register_voter_face)
+        face_register_btn.setMinimumHeight(40)
+        
         refresh_btn = QPushButton("🔄 Làm mới")
         refresh_btn.clicked.connect(self.load_voters)
         refresh_btn.setMinimumHeight(40)
         
         button_layout.addWidget(add_btn)
         button_layout.addWidget(verify_btn)
+        button_layout.addWidget(face_register_btn)
         button_layout.addStretch()
         button_layout.addWidget(refresh_btn)
         layout.addLayout(button_layout)
@@ -405,7 +417,7 @@ class AdminView(QWidget):
         if new_state == ElectionState.COUNT:
             success, message = self.election_service.transition_state(election, new_state)
             if success:
-                proposals = self.election_service.count_votes(election)
+                proposals = self.election_service.count_votes(election, self.blockchain)
                 QMessageBox.information(self, "Thành công", 
                     f"{message}\nĐã kiểm {len(proposals)} ứng viên")
                 self.load_proposals()
@@ -529,9 +541,11 @@ class AdminView(QWidget):
         for row, voter in enumerate(voters):
             self.voters_table.setItem(row, 0, QTableWidgetItem(str(voter.id)))
             self.voters_table.setItem(row, 1, QTableWidgetItem(voter.full_name))
-            self.voters_table.setItem(row, 2, QTableWidgetItem("✅" if voter.voted else "❌"))
-            self.voters_table.setItem(row, 3, QTableWidgetItem("✅" if voter.verified else "❌"))
-            self.voters_table.setItem(row, 4, QTableWidgetItem(voter.public_key[:50] + "..."))
+            self.voters_table.setItem(row, 2, QTableWidgetItem(voter.cccd if voter.cccd else "Chưa có"))
+            self.voters_table.setItem(row, 3, QTableWidgetItem("✅" if voter.face_registered else "❌"))
+            self.voters_table.setItem(row, 4, QTableWidgetItem("✅" if voter.voted else "❌"))
+            self.voters_table.setItem(row, 5, QTableWidgetItem("✅" if voter.verified else "❌"))
+            self.voters_table.setItem(row, 6, QTableWidgetItem(voter.public_key[:50] + "..."))
     
     def add_voter(self):
         """Add a new voter"""
@@ -562,6 +576,64 @@ class AdminView(QWidget):
         if self.auth_service.verify_voter(voter_id):
             QMessageBox.information(self, "Thành công", "Đã xác thực cử tri")
             self.load_voters()
+    
+    def register_voter_face(self):
+        """Register face for selected voter"""
+        from services.face_recognition_service import FaceRecognitionService
+        
+        selected_rows = self.voters_table.selectedItems()
+        if not selected_rows:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng chọn cử tri")
+            return
+        
+        voter_id = int(selected_rows[0].text())
+        voter = self.voting_service.db_manager.get_voter_by_id(voter_id)
+        
+        if not voter:
+            QMessageBox.warning(self, "Lỗi", "Không tìm thấy cử tri")
+            return
+        
+        if not voter.cccd:
+            QMessageBox.warning(self, "Lỗi", 
+                              f"Cử tri {voter.full_name} chưa có số CCCD.\n"
+                              "Vui lòng cập nhật CCCD trước khi đăng ký khuôn mặt.")
+            return
+        
+        # Check if already registered
+        face_service = FaceRecognitionService()
+        if face_service.has_registered_face(voter.cccd):
+            reply = QMessageBox.question(
+                self, "Xác nhận",
+                f"Cử tri {voter.full_name} (CCCD: {voter.cccd}) đã đăng ký khuôn mặt.\n"
+                "Bạn có muốn đăng ký lại không?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
+            face_service.delete_face(voter.cccd)
+        
+        # Register face
+        QMessageBox.information(
+            self, "Hướng dẫn",
+            f"Chuẩn bị đăng ký khuôn mặt cho:\n"
+            f"Tên: {voter.full_name}\n"
+            f"CCCD: {voter.cccd}\n\n"
+            "Webcam sẽ mở. Nhấn SPACE để chụp, ESC để hủy."
+        )
+        
+        if face_service.register_face(voter.cccd, voter.full_name):
+            voter.face_registered = True
+            self.voting_service.db_manager.update_voter(voter)
+            QMessageBox.information(
+                self, "Thành công",
+                f"Đã đăng ký khuôn mặt cho {voter.full_name}"
+            )
+            self.load_voters()
+        else:
+            QMessageBox.warning(
+                self, "Lỗi",
+                "Không thể đăng ký khuôn mặt. Vui lòng thử lại."
+            )
     
     def load_blockchain(self):
         """Load blockchain into table"""

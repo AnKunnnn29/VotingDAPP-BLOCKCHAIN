@@ -9,6 +9,8 @@ class Voter:
     full_name: str
     public_key: str
     private_key: str  # In production, this would be stored securely
+    cccd: str = ""  # Citizen ID number
+    face_registered: bool = False
     weight: int = 1
     voted: bool = False
     selected_proposal_id: Optional[int] = None
@@ -22,6 +24,8 @@ class Voter:
             'full_name': self.full_name,
             'public_key': self.public_key,
             'private_key': self.private_key,
+            'cccd': self.cccd,
+            'face_registered': self.face_registered,
             'weight': self.weight,
             'voted': self.voted,
             'selected_proposal_id': self.selected_proposal_id,
@@ -37,6 +41,8 @@ class Voter:
             full_name=data['full_name'],
             public_key=data['public_key'],
             private_key=data['private_key'],
+            cccd=data.get('cccd', ''),
+            face_registered=data.get('face_registered', False),
             weight=data.get('weight', 1),
             voted=data.get('voted', False),
             selected_proposal_id=data.get('selected_proposal_id'),

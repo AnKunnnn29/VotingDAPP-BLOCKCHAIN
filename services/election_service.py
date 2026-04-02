@@ -23,6 +23,12 @@ class ElectionService:
             start_time=datetime.now()
         )
         election.id = self.db_manager.add_election(election)
+        
+        # NOTE: We do NOT reset voters' voted status here
+        # The blockchain is the source of truth for who voted in which election
+        # voter.voted is just a convenience flag, not authoritative
+        # Each election is tracked separately by election_id in blockchain
+        
         return election
     
     def get_current_election(self) -> Optional[Election]:
@@ -47,8 +53,8 @@ class ElectionService:
         self.db_manager.update_election(election)
         return True, f"Đã chuyển sang trạng thái {new_state}"
     
-    def count_votes(self, election: Election) -> List[Proposal]:
-        """Count all votes and update proposal vote counts"""
+    def count_votes(self, election: Election, blockchain) -> List[Proposal]:
+        """Count all votes from blockchain and update proposal vote counts"""
         if election.state != ElectionState.COUNT:
             return []
         
@@ -59,13 +65,19 @@ class ElectionService:
         for proposal in proposals:
             proposal.vote_count = 0
         
-        # Count votes
-        for voter in voters:
-            if voter.voted and voter.selected_proposal_id:
-                for proposal in proposals:
-                    if proposal.id == voter.selected_proposal_id:
-                        proposal.vote_count += voter.weight
-                        break
+        # Count votes from blockchain (source of truth)
+        vote_blocks = blockchain.get_votes_by_election(election.id)
+        
+        for block in vote_blocks:
+            # Find voter to get weight
+            voter = next((v for v in voters if v.id == block.voter_id), None)
+            if not voter:
+                continue
+            
+            # Find proposal and add vote
+            proposal = next((p for p in proposals if p.id == block.proposal_id), None)
+            if proposal:
+                proposal.vote_count += voter.weight
         
         # Update database
         for proposal in proposals:
@@ -82,7 +94,15 @@ class ElectionService:
         if not proposals:
             return None
         
-        winner = max(proposals, key=lambda p: p.vote_count)
+        # Find max vote count
+        max_votes = max(p.vote_count for p in proposals)
+        
+        # Get all proposals with max votes (handle ties)
+        winners = [p for p in proposals if p.vote_count == max_votes]
+        
+        # If tie, select first one (deterministic)
+        winner = winners[0]
+        
         election.winner_id = winner.id
         election.end_time = datetime.now()
         self.db_manager.update_election(election)

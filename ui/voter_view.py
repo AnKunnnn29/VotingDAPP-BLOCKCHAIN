@@ -225,19 +225,15 @@ class VoterView(QWidget):
         if not hasattr(self, 'current_election') or not self.current_election:
             return
         
-        # Check if voter has voted for THIS election
-        if self.voter.voted and self.voter.selected_proposal_id:
-            proposals = self.voting_service.db_manager.get_all_proposals(self.current_election.id)
-            proposal_ids = [p.id for p in proposals]
-            self.has_voted_current_election = self.voter.selected_proposal_id in proposal_ids
-        else:
-            self.has_voted_current_election = False
+        # Check blockchain directly for this election
+        existing_vote = self.voting_service.blockchain.get_vote_by_voter_and_election(
+            self.voter.id, self.current_election.id
+        )
+        self.has_voted_current_election = existing_vote is not None
         
         # Update status label
         if self.has_voted_current_election:
             status = "✅ Đã bỏ phiếu (cuộc bầu cử này)"
-        elif self.voter.voted:
-            status = "⏳ Chưa bỏ phiếu (cuộc bầu cử này)"
         else:
             status = "⏳ Chưa bỏ phiếu"
         self.status_label.setText(status)

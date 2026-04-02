@@ -81,9 +81,10 @@ class DatabaseManager:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO voters (full_name, public_key, private_key, weight, verified)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (voter.full_name, voter.public_key, voter.private_key, voter.weight, voter.verified))
+            INSERT INTO voters (full_name, public_key, private_key, cccd, face_registered, weight, verified)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (voter.full_name, voter.public_key, voter.private_key, voter.cccd, 
+              voter.face_registered, voter.weight, voter.verified))
         voter_id = cursor.lastrowid
         conn.commit()
         conn.close()
@@ -99,9 +100,17 @@ class DatabaseManager:
         
         if row:
             return Voter(
-                id=row[0], full_name=row[1], public_key=row[2], private_key=row[3],
-                weight=row[4], voted=bool(row[5]), selected_proposal_id=row[6],
-                digital_signature=row[7], verified=bool(row[8])
+                id=row[0], 
+                full_name=row[1], 
+                public_key=row[2], 
+                private_key=row[3],
+                cccd=row[9] if len(row) > 9 else '',
+                face_registered=bool(row[10]) if len(row) > 10 else False,
+                weight=row[4], 
+                voted=bool(row[5]), 
+                selected_proposal_id=row[6],
+                digital_signature=row[7], 
+                verified=bool(row[8])
             )
         return None
     
@@ -114,9 +123,17 @@ class DatabaseManager:
         conn.close()
         
         return [Voter(
-            id=row[0], full_name=row[1], public_key=row[2], private_key=row[3],
-            weight=row[4], voted=bool(row[5]), selected_proposal_id=row[6],
-            digital_signature=row[7], verified=bool(row[8])
+            id=row[0], 
+            full_name=row[1], 
+            public_key=row[2], 
+            private_key=row[3],
+            cccd=row[9] if len(row) > 9 else '',
+            face_registered=bool(row[10]) if len(row) > 10 else False,
+            weight=row[4], 
+            voted=bool(row[5]), 
+            selected_proposal_id=row[6],
+            digital_signature=row[7], 
+            verified=bool(row[8])
         ) for row in rows]
     
     def update_voter(self, voter: Voter):
@@ -124,12 +141,13 @@ class DatabaseManager:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            UPDATE voters SET full_name=?, public_key=?, private_key=?, weight=?,
-            voted=?, selected_proposal_id=?, digital_signature=?, verified=?
+            UPDATE voters SET full_name=?, public_key=?, private_key=?, cccd=?, 
+            face_registered=?, weight=?, voted=?, selected_proposal_id=?, 
+            digital_signature=?, verified=?
             WHERE id=?
-        ''', (voter.full_name, voter.public_key, voter.private_key, voter.weight,
-              voter.voted, voter.selected_proposal_id, voter.digital_signature,
-              voter.verified, voter.id))
+        ''', (voter.full_name, voter.public_key, voter.private_key, voter.cccd,
+              voter.face_registered, voter.weight, voter.voted, voter.selected_proposal_id, 
+              voter.digital_signature, voter.verified, voter.id))
         conn.commit()
         conn.close()
     
@@ -232,18 +250,26 @@ class DatabaseManager:
     
     # Blockchain operations
     def save_blockchain(self, blockchain: Blockchain):
-        """Save blockchain to database"""
+        """Save blockchain to database with transaction"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        chain_data = json.dumps(blockchain.to_dict_list())
-        
-        # Clear existing blockchain data
-        cursor.execute('DELETE FROM blockchain')
-        cursor.execute('INSERT INTO blockchain (chain_data) VALUES (?)', (chain_data,))
-        
-        conn.commit()
-        conn.close()
+        try:
+            chain_data = json.dumps(blockchain.to_dict_list())
+            
+            # Use transaction for atomic operation
+            cursor.execute('BEGIN TRANSACTION')
+            cursor.execute('DELETE FROM blockchain')
+            cursor.execute('INSERT INTO blockchain (chain_data) VALUES (?)', (chain_data,))
+            cursor.execute('COMMIT')
+            
+            conn.commit()
+        except Exception as e:
+            cursor.execute('ROLLBACK')
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
     
     def load_blockchain(self) -> Blockchain:
         """Load blockchain from database"""

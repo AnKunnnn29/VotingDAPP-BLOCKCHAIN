@@ -16,15 +16,19 @@ def init_sample_data():
     if len(voters) > 0:
         return  # Data already initialized
     
-    # Create sample voters
+    # Create sample voters with CCCD
     print("Initializing sample data...")
     for i in range(1, 21):
         private_key, public_key = crypto.generate_key_pair()
+        # Generate CCCD: 12 digits starting with voter number
+        cccd = f"{i:03d}123456789"[:12].zfill(12)
         voter = Voter(
             id=0,
             full_name=f"Cử tri {i}",
             public_key=public_key,
             private_key=private_key,
+            cccd=cccd,
+            face_registered=False,
             weight=1,
             verified=(i <= 10)  # First 10 voters are verified
         )
@@ -32,6 +36,7 @@ def init_sample_data():
     
     print(f"Created 20 sample voters (IDs 1-20)")
     print("First 10 voters are verified, last 10 are unverified")
+    print("CCCD format: 001123456789, 002123456789, ...")
 
 def main():
     """Main function"""
@@ -43,9 +48,9 @@ def main():
     app.setApplicationName("DApp Voting System")
     app.setOrganizationName("Blockchain Voting")
     
-    # Create and show main window
+    # Create and show main window in fullscreen
     window = MainWindow()
-    window.show()
+    window.showMaximized()  # Show maximized
     
     # Run application
     sys.exit(app.exec())
