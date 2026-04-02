@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 from blockchain.block import Block
 import time
+import hashlib
 
 class Transaction:
     """Represents a pending transaction in the mempool"""
@@ -136,6 +137,73 @@ class Blockchain:
         """Find a vote block by voter ID and election ID"""
         for block in reversed(self.chain):
             if block.voter_id == voter_id and block.election_id == election_id and block.index > 0:
+                return block
+        return None
+    
+    def add_vote_block_with_token(self, token: str, proposal_id: int, signature: str, 
+                                   election_id: int = 0, miner: str = "system") -> Block:
+        """
+        Add a vote block using anonymous token instead of voter_id
+        
+        PRIVACY: This stores token (not voter_id) on blockchain
+        After identity mapping is revoked, votes are permanently anonymous
+        
+        Args:
+            token: Anonymous token (replaces voter_id)
+            proposal_id: Proposal ID
+            signature: Digital signature
+            election_id: Election ID
+            miner: Miner address
+            
+        Returns:
+            Block
+        """
+        # Store token hash instead of raw token for extra privacy
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        
+        # Use voter_id field to store token_hash (for compatibility)
+        # In production, Block class should have a separate 'token' field
+        previous_block = self.get_latest_block()
+        new_block = Block(
+            index=len(self.chain),
+            timestamp=datetime.now().isoformat(),
+            voter_id=int(token_hash[:16], 16) % (2**31),  # Convert hash to int for compatibility
+            proposal_id=proposal_id,
+            signature=signature,
+            previous_hash=previous_block.hash,
+            election_id=election_id,
+            nonce=0,
+            difficulty=self.difficulty,
+            miner=miner
+        )
+        
+        # Store original token hash in block for verification
+        new_block.token_hash = token_hash
+        
+        # Mine the block
+        print(f"\n⛏️ Mining anonymous vote block #{new_block.index}...")
+        hash_result, nonce, mining_time = new_block.mine_block(self.difficulty)
+        print(f"✅ Block mined! Hash: {hash_result[:16]}... Time: {mining_time:.2f}s")
+        
+        self.chain.append(new_block)
+        return new_block
+    
+    def get_vote_by_token(self, token: str, election_id: int) -> Optional[Block]:
+        """
+        Find a vote block by token and election ID
+        
+        Args:
+            token: Anonymous token
+            election_id: Election ID
+            
+        Returns:
+            Block or None
+        """
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        
+        for block in reversed(self.chain):
+            if hasattr(block, 'token_hash') and block.token_hash == token_hash and \
+               block.election_id == election_id and block.index > 0:
                 return block
         return None
     
