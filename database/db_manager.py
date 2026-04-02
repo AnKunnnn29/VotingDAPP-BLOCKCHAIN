@@ -233,6 +233,50 @@ class DatabaseManager:
             })
         return None
     
+    def get_all_elections(self) -> List[Election]:
+        """Get all elections"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM elections ORDER BY id DESC')
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [Election.from_dict({
+            'id': row[0], 'title': row[1], 'description': row[2],
+            'state': row[3], 'blockchain_mode': row[4],
+            'start_time': row[5], 'end_time': row[6], 'winner_id': row[7]
+        }) for row in rows]
+    
+    def get_election_by_id(self, election_id: int) -> Optional[Election]:
+        """Get election by ID"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM elections WHERE id=?', (election_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return Election.from_dict({
+                'id': row[0], 'title': row[1], 'description': row[2],
+                'state': row[3], 'blockchain_mode': row[4],
+                'start_time': row[5], 'end_time': row[6], 'winner_id': row[7]
+            })
+        return None
+    
+    def get_elections_by_state(self, state: str) -> List[Election]:
+        """Get elections by state"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM elections WHERE state=? ORDER BY id DESC', (state,))
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [Election.from_dict({
+            'id': row[0], 'title': row[1], 'description': row[2],
+            'state': row[3], 'blockchain_mode': row[4],
+            'start_time': row[5], 'end_time': row[6], 'winner_id': row[7]
+        }) for row in rows]
+    
     def update_election(self, election: Election):
         """Update election information"""
         conn = self.get_connection()

@@ -35,10 +35,36 @@ class VoterView(QWidget):
         self.header.setObjectName("subtitleLabel")
         layout.addWidget(self.header)
         
+        # Create tabs for different views
+        from PySide6.QtWidgets import QTabWidget
+        tabs = QTabWidget()
+        tabs.addTab(self.create_current_election_tab(), "🗳️ Cuộc bầu cử hiện tại")
+        tabs.addTab(self.create_voting_history_tab(), "📜 Lịch sử bỏ phiếu")
+        tabs.addTab(self.create_all_elections_tab(), "📋 Tất cả cuộc bầu cử")
+        layout.addWidget(tabs)
+        
+        # Logout button
+        logout_btn = QPushButton("🚪 Đăng xuất")
+        logout_btn.setObjectName("dangerButton")
+        logout_btn.clicked.connect(self.logout_signal.emit)
+        logout_btn.setMinimumHeight(40)
+        layout.addWidget(logout_btn)
+        
+        self.setLayout(layout)
+    
+    def create_current_election_tab(self):
+        """Create tab for current election"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        
         # Election info
         self.election_info_group = QGroupBox("🗳️ Thông tin cuộc bầu cử")
         election_info_layout = QVBoxLayout()
         election_info_layout.setSpacing(8)
+        
         
         self.election_title_label = QLabel("Đang tải...")
         self.election_title_label.setObjectName("valueLabel")
@@ -49,6 +75,7 @@ class VoterView(QWidget):
         election_info_layout.addWidget(self.election_state_label)
         self.election_info_group.setLayout(election_info_layout)
         layout.addWidget(self.election_info_group)
+        
         
         # Voter info - Grid layout for better alignment
         self.info_group = QGroupBox("📋 Thông tin cử tri")

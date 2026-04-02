@@ -50,7 +50,7 @@ def main():
     
     # Create and show main window in fullscreen
     window = MainWindow()
-    window.showMaximized()  # Show maximized
+    window.showMaximized()  # Always fullscreen to avoid display issues
     
     # Run application
     sys.exit(app.exec())

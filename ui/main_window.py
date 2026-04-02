@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, Q
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from ui.login_dialog_face import LoginDialogWithFace
-from ui.voter_view import VoterView
+from ui.voter_view_enhanced import VoterViewEnhanced
 from ui.admin_view import AdminView
 from ui.styles import MAIN_STYLE
 from services.voting_service import VotingService
@@ -228,7 +228,8 @@ class MainWindow(QMainWindow):
             self.current_role = dialog.user_role
             
             if self.current_role == "Admin":
-                self.show_admin_view()
+                # Use secure admin login
+                self.show_admin_login()
             else:
                 voter = self.db_manager.get_voter_by_id(dialog.user_id)
                 if voter:
@@ -240,6 +241,20 @@ class MainWindow(QMainWindow):
         else:
             self.close()
     
+    def show_admin_login(self):
+        """Show secure admin login dialog"""
+        from ui.admin_login_dialog import AdminLoginDialog
+        
+        admin_dialog = AdminLoginDialog(self)
+        if admin_dialog.exec() == AdminLoginDialog.Accepted:
+            admin_data = admin_dialog.get_admin_data()
+            if admin_data:
+                self.current_user = admin_data
+                self.show_admin_view()
+        else:
+            # Admin cancelled, go back to role selection
+            self.show_login()
+    
     def show_voter_view(self, voter):
         """Show voter view"""
         self.current_user = voter
@@ -250,7 +265,7 @@ class MainWindow(QMainWindow):
             self.stacked_widget.removeWidget(widget)
             widget.deleteLater()
         
-        voter_view = VoterView(voter, self.voting_service, self.election_service)
+        voter_view = VoterViewEnhanced(voter, self.voting_service, self.election_service)
         voter_view.logout_signal.connect(self.logout)
         self.stacked_widget.addWidget(voter_view)
         self.stacked_widget.setCurrentWidget(voter_view)
