@@ -107,6 +107,8 @@ class VoterViewEnhanced(QWidget):
         self.proposals_table.setSelectionMode(QTableWidget.SingleSelection)
         self.proposals_table.setAlternatingRowColors(True)
         self.proposals_table.verticalHeader().setVisible(False)
+        self.proposals_table.horizontalHeader().setHighlightSections(False)  # Disable column highlight
+        self.proposals_table.setFocusPolicy(Qt.NoFocus)  # Disable focus rectangle
         self.proposals_table.setMinimumHeight(200)
         self.proposals_table.itemSelectionChanged.connect(self.on_proposal_selected)
         proposals_layout.addWidget(self.proposals_table)
@@ -163,8 +165,11 @@ class VoterViewEnhanced(QWidget):
         self.history_table.setColumnWidth(2, 150)
         self.history_table.setColumnWidth(5, 150)
         self.history_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.history_table.setSelectionMode(QTableWidget.SingleSelection)
         self.history_table.setAlternatingRowColors(True)
         self.history_table.verticalHeader().setVisible(False)
+        self.history_table.horizontalHeader().setHighlightSections(False)  # Disable column highlight
+        self.history_table.setFocusPolicy(Qt.NoFocus)  # Disable focus rectangle
         self.history_table.setMinimumHeight(300)
         self.history_table.doubleClicked.connect(self.view_history_detail)
         layout.addWidget(self.history_table)
@@ -211,19 +216,26 @@ class VoterViewEnhanced(QWidget):
         self.elections_table.setHorizontalHeaderLabels([
             "ID", "Tên cuộc bầu cử", "Trạng thái", "Thời gian bắt đầu", "Bạn đã bỏ phiếu", "Người thắng"
         ])
-        self.elections_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        # Fix column widths for better display
+        self.elections_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
         self.elections_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.elections_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Interactive)
-        self.elections_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Interactive)
-        self.elections_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        self.elections_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Interactive)
-        self.elections_table.setColumnWidth(2, 120)
-        self.elections_table.setColumnWidth(3, 150)
-        self.elections_table.setColumnWidth(5, 150)
+        self.elections_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self.elections_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        self.elections_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
+        self.elections_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
+        self.elections_table.setColumnWidth(0, 50)  # ID column narrower
+        self.elections_table.setColumnWidth(2, 120)  # Status - wider
+        self.elections_table.setColumnWidth(3, 180)  # Start time - wider
+        self.elections_table.setColumnWidth(4, 150)  # Voted status - wider
         self.elections_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.elections_table.setSelectionMode(QTableWidget.SingleSelection)
         self.elections_table.setAlternatingRowColors(True)
         self.elections_table.verticalHeader().setVisible(False)
+        self.elections_table.horizontalHeader().setHighlightSections(False)  # Disable column highlight
+        self.elections_table.setFocusPolicy(Qt.NoFocus)  # Disable focus rectangle
         self.elections_table.setMinimumHeight(300)
+        self.elections_table.setWordWrap(True)  # Enable word wrap
+        self.elections_table.setTextElideMode(Qt.ElideNone)  # Disable text eliding
         self.elections_table.doubleClicked.connect(self.view_election_detail)
         layout.addWidget(self.elections_table)
         
@@ -352,13 +364,33 @@ class VoterViewEnhanced(QWidget):
                         winner_name = p.candidate_name
                         break
             
-            self.elections_table.setItem(row, 0, QTableWidgetItem(str(election.id)))
-            self.elections_table.setItem(row, 1, QTableWidgetItem(election.title))
-            self.elections_table.setItem(row, 2, QTableWidgetItem(election.state))
+            # Create items with proper alignment
+            id_item = QTableWidgetItem(str(election.id))
+            id_item.setTextAlignment(Qt.AlignCenter)
+            
+            title_item = QTableWidgetItem(election.title)
+            
+            state_item = QTableWidgetItem(election.state)
+            state_item.setTextAlignment(Qt.AlignCenter)
+            
             start_time = election.start_time.strftime('%Y-%m-%d %H:%M') if election.start_time else "N/A"
-            self.elections_table.setItem(row, 3, QTableWidgetItem(start_time))
-            self.elections_table.setItem(row, 4, QTableWidgetItem(voted_status))
-            self.elections_table.setItem(row, 5, QTableWidgetItem(winner_name))
+            time_item = QTableWidgetItem(start_time)
+            time_item.setTextAlignment(Qt.AlignCenter)
+            
+            voted_item = QTableWidgetItem(voted_status)
+            voted_item.setTextAlignment(Qt.AlignCenter)
+            
+            winner_item = QTableWidgetItem(winner_name)
+            
+            self.elections_table.setItem(row, 0, id_item)
+            self.elections_table.setItem(row, 1, title_item)
+            self.elections_table.setItem(row, 2, state_item)
+            self.elections_table.setItem(row, 3, time_item)
+            self.elections_table.setItem(row, 4, voted_item)
+            self.elections_table.setItem(row, 5, winner_item)
+        
+        # Adjust row heights to fit content
+        self.elections_table.resizeRowsToContents()
     
     def update_voter_status_for_current_election(self):
         """Update voter status for current election"""

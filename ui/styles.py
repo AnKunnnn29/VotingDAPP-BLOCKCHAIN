@@ -294,11 +294,18 @@ QTableWidget {
     color: #e2e8f0;
     selection-background-color: rgba(59, 130, 246, 0.4);
     alternate-background-color: rgba(30, 41, 59, 0.4);
+    outline: none;
 }
 
 QTableWidget::item {
     padding: 16px 12px;
     border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+    outline: none;
+}
+
+QTableWidget::item:focus {
+    outline: none;
+    border: none;
 }
 
 QTableWidget::item:selected {
@@ -306,6 +313,16 @@ QTableWidget::item:selected {
         stop:0 rgba(59, 130, 246, 0.5), stop:1 rgba(96, 165, 250, 0.5));
     color: #ffffff;
     font-weight: 700;
+    border-left: 4px solid #3b82f6;
+    outline: none;
+}
+
+QTableWidget::item:selected:focus {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 rgba(59, 130, 246, 0.5), stop:1 rgba(96, 165, 250, 0.5));
+    color: #ffffff;
+    outline: none;
+    border: none;
     border-left: 4px solid #3b82f6;
 }
 
@@ -324,12 +341,25 @@ QHeaderView::section {
     font-size: 10pt;
     text-transform: uppercase;
     letter-spacing: 1.2px;
+    outline: none;
 }
 
 QHeaderView::section:hover {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
         stop:0 #334155, stop:1 #1e293b);
     color: #93c5fd;
+}
+
+/* Fix text eliding - remove dashes */
+QTableView {
+    text-elide-mode: none;
+    outline: none;
+    show-decoration-selected: 1;
+}
+
+QTableWidget QTableCornerButton::section {
+    background: #0f172a;
+    border: none;
 }
 
 /* Tabs - Modern style */
